@@ -7,7 +7,9 @@ import re
 from PIL import Image
 from io import BytesIO
 import io
+import logging
 
+logging.basicConfig(level=logging.INFO, filename='metadata.log', filemode='a', format='%(asctime)s - %(levelname)s - %(message)s')
 
 '''
 Python api to download image form Bing.
@@ -31,14 +33,15 @@ def resize(url,size: tuple):
     return img
 
 class Bing:
-    def __init__(self, query, limit, output_dir, adult, timeout, filter='',resize=None, verbose=True):
+    def __init__(self, query, limit, output_dir, adult, timeout, filter='',resize=None, verbose=True, license=''):
         self.download_count = 0
         self.query = query
         self.output_dir = output_dir
         self.adult = adult
-        self.filter = filter
+        self.filter = license
         self.verbose = verbose
         self.seen = set()
+        self.params = {"query": query, "limit": limit, "output_dir": output_dir, "adult": adult, "timeout": timeout, "filter": filter, "resize": resize, "verbose": verbose, "license": license}
         
 
         assert type(limit) == int, "limit must be integer"
@@ -71,6 +74,14 @@ class Bing:
                 return "+filterui:photo-animatedgif"
             elif shorthand == "transparent":
                 return "+filterui:photo-transparent"
+            elif shorthand == "All Creative Commons":
+                return "+filterui:license-L2_L3_L4_L5_L6_L7"
+            elif shorthand == "Public Domain":
+                return "+filterui:license-L1"
+            elif shorthand == "Free to Share and Use":
+                return "+filterui:license-L2_L3_L4_L7"
+            elif shorthand == "Free to Share and Use Commercially":
+                return "+filterui:license-L2_L3_L5_L6"
             else:
                 return ""
 
@@ -99,7 +110,7 @@ class Bing:
 
                
     def download_image(self, link):
-
+        logging.info(f"Downloading image from {link}")
         self.download_count += 1
         # Get the image link
         try:
@@ -108,7 +119,12 @@ class Bing:
             file_type = filename.split(".")[-1]
             if file_type.lower() not in ["jpe", "jpeg", "jfif", "exif", "tiff", "gif", "bmp", "png", "webp", "jpg"]:
                 file_type = "jpg"
-                
+            
+            # Log metadata
+            logging.info(f"Image Name: {filename}")
+            logging.info(f"Image URL: {link}")
+            logging.info(f"Query: {self.params}")
+
             if self.verbose:
                 # Download the image
                 print("[%] Downloading Image #{} from {}".format(self.download_count, link))
@@ -121,6 +137,7 @@ class Bing:
         except Exception as e:
             self.download_count -= 1
             print("[!] Issue getting: {}\n[!] Error:: {}".format(link, e))
+            logging.error(f"Failed to download image from {link} - {e}")
 
     
     def run(self):
